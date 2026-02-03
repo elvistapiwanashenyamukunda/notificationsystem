@@ -1,0 +1,51 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Payments</title>
+  </head>
+  <body>
+    <div style="display:flex; justify-content: space-between; align-items:center;">
+      <h1>Payments</h1>
+      <form method="post" action="/logout">
+        <span style="margin-right: 12px;">Logged in as <%= user.email %></span>
+        <button type="submit">Logout</button>
+      </form>
+    </div>
+
+    <p><a href="/payments/new">Create payment</a></p>
+
+    <table border="1" cellpadding="6" cellspacing="0">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Counterparty</th>
+          <th>Amount</th>
+          <th>Due date</th>
+          <th>Notes</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (payments.length === 0) { %>
+          <tr><td colspan="6">No payments yet</td></tr>
+        <% } %>
+        <% payments.forEach(p => { %>
+          <tr>
+            <td><%= p.title %></td>
+            <td><%= p.counterparty %></td>
+            <td><%= (p.amount_cents / 100).toFixed(2) %> <%= p.currency %></td>
+            <td><%= p.due_date %></td>
+            <td><%= p.notes || '' %></td>
+            <td>
+              <form method="post" action="/payments/<%= p.id %>/delete" style="display:inline;" onsubmit="return confirm('Delete this payment?');">
+                <button type="submit">Delete</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </body>
+</html>

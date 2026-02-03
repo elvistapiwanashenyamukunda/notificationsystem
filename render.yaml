@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: notification-system-web
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node src/server.js
+    envVars:
+      - key: NODE_VERSION
+        value: 18
+      - key: PORT
+        value: 10000
+      - key: ENABLE_SCHEDULER
+        value: "false"
+      - key: DB_PATH
+        value: /var/data/app.db
+
+  - type: worker
+    name: notification-system-worker
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node src/worker.js
+    envVars:
+      - key: NODE_VERSION
+        value: 18
+      - key: ENABLE_SCHEDULER
+        value: "true"
+      - key: DB_PATH
+        value: /var/data/app.db
+
+disks:
+  - name: notification-system-data
+    mountPath: /var/data
+    sizeGB: 1

@@ -1,0 +1,51 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>New Payment</title>
+  </head>
+  <body>
+    <p><a href="/payments">Back</a></p>
+    <h1>Create Payment</h1>
+
+    <% if (error) { %>
+      <p style="color: red;"><%= error %></p>
+    <% } %>
+
+    <form method="post" action="/payments/new">
+      <div>
+        <label>Title *</label><br />
+        <input name="title" required value="<%= form.title || '' %>" />
+      </div>
+      <div style="margin-top: 8px;">
+        <label>Counterparty *</label><br />
+        <input name="counterparty" required value="<%= form.counterparty || '' %>" />
+      </div>
+      <div style="margin-top: 8px;">
+        <label>Amount *</label><br />
+        <input name="amount" required inputmode="decimal" placeholder="e.g. 1250.00" value="<%= form.amount || '' %>" />
+      </div>
+      <div style="margin-top: 8px;">
+        <label>Currency *</label><br />
+        <input name="currency" required placeholder="e.g. USD" value="<%= form.currency || 'USD' %>" />
+      </div>
+      <div style="margin-top: 8px;">
+        <label>Due date *</label><br />
+        <input name="due_date" type="date" required value="<%= form.due_date || '' %>" />
+      </div>
+      <div style="margin-top: 8px;">
+        <label>Reminders (days before due date)</label><br />
+        <input name="reminder_days_before" placeholder="e.g. 7,3,1,0" value="<%= form.reminder_days_before || '' %>" />
+      </div>
+      <div style="margin-top: 8px;">
+        <label>Notes</label><br />
+        <textarea name="notes" rows="4" cols="40"><%= form.notes || '' %></textarea>
+      </div>
+
+      <div style="margin-top: 12px;">
+        <button type="submit">Save</button>
+      </div>
+    </form>
+  </body>
+</html>
