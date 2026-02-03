@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { getDb } from './db.js';
+import { query } from './db.js';
 import { sendMail } from './mailer.js';
 
 function parseDaysBefore() {
@@ -33,50 +33,53 @@ function addDays(date, days) {
   return d;
 }
 
+function toIsoDateString(dateOrString) {
+  if (dateOrString instanceof Date) return dateOrString.toISOString().slice(0, 10);
+  return String(dateOrString).slice(0, 10);
+}
+
 async function runOnce() {
-  const db = getDb();
   const defaultDaysBeforeList = parseDaysBefore();
 
   const now = new Date();
   const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
-  const payments = db
-    .prepare(
-      `SELECT p.id, p.title, p.counterparty, p.amount_cents, p.currency, p.due_date, p.reminder_days_before, a.email as admin_email
-       FROM payments p
-       JOIN admins a ON a.id = p.created_by_admin_id`
-    )
-    .all();
+  const paymentsResult = await query(
+    `SELECT p.id, p.title, p.counterparty, p.amount_cents, p.currency, p.due_date, p.reminder_days_before, a.email as admin_email
+     FROM payments p
+     JOIN admins a ON a.id = p.created_by_admin_id`
+  );
+  const payments = paymentsResult.rows;
 
   for (const p of payments) {
     const list = parseDaysBeforeRaw(p.reminder_days_before) || defaultDaysBeforeList;
 
+    const dueDateIso = toIsoDateString(p.due_date);
+    const dueDateMidnightUtc = new Date(dueDateIso + 'T00:00:00Z');
+
     for (const daysBefore of list) {
-      const remindOnDate = addDays(new Date(p.due_date + 'T00:00:00Z'), -daysBefore);
+      const remindOnDate = addDays(dueDateMidnightUtc, -daysBefore);
       const remindOnIso = dateOnlyISO(remindOnDate);
       if (remindOnIso !== dateOnlyISO(today)) continue;
 
-      const already = db
-        .prepare('SELECT 1 FROM reminders_sent WHERE payment_id = ? AND remind_on = ?')
-        .get(p.id, remindOnIso);
-      if (already) continue;
+      const already = await query(
+        'SELECT 1 FROM reminders_sent WHERE payment_id = $1 AND remind_on = $2',
+        [p.id, remindOnIso]
+      );
+      if (already.rowCount > 0) continue;
 
       const amount = (p.amount_cents / 100).toFixed(2);
-      const subject = `Payment reminder: ${p.title} due ${p.due_date}`;
+      const subject = `Payment reminder: ${p.title} due ${dueDateIso}`;
       const text =
         `Payment reminder.\n\n` +
         `Title: ${p.title}\n` +
         `Counterparty: ${p.counterparty}\n` +
         `Amount: ${amount} ${p.currency}\n` +
-        `Due date: ${p.due_date}\n`;
+        `Due date: ${dueDateIso}\n`;
 
       await sendMail({ to: p.admin_email, subject, text });
 
-      db.prepare('INSERT INTO reminders_sent (payment_id, remind_on, sent_at) VALUES (?, ?, ?)').run(
-        p.id,
-        remindOnIso,
-        new Date().toISOString()
-      );
+      await query('INSERT INTO reminders_sent (payment_id, remind_on) VALUES ($1, $2)', [p.id, remindOnIso]);
     }
   }
 }

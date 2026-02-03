@@ -1,10 +1,10 @@
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import readline from 'readline';
-import { initDb, getDb } from '../services/db.js';
+import { initDb, query } from '../services/db.js';
 
 dotenv.config();
-initDb();
+await initDb();
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
@@ -22,14 +22,9 @@ if (!email || !password) {
 }
 
 const hash = bcrypt.hashSync(password, 10);
-const db = getDb();
 
 try {
-  db.prepare('INSERT INTO admins (email, password_hash, created_at) VALUES (?, ?, ?)').run(
-    email,
-    hash,
-    new Date().toISOString()
-  );
+  await query('INSERT INTO admins (email, password_hash) VALUES ($1, $2)', [email, hash]);
   console.log('Admin created');
 } catch (e) {
   console.error('Failed to create admin:', e.message);

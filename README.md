@@ -66,10 +66,9 @@ Typical options:
 If you tell me which host you prefer, I can add the exact deploy config for it.
 
 ## Deploy on Render
-This repo includes a `render.yaml` that provisions:
-- a **Web service** (the UI + API)
-- a **Worker service** (runs the email reminder scheduler)
-- a **Persistent Disk** for SQLite
+This repo includes a `render.yaml` for a Render **free-tier compatible** deploy.
+
+Because Render free services don’t support persistent disks, this project uses **Postgres** (set `DATABASE_URL`).
 
 ### Steps
 1. Push this repo to GitHub.
@@ -78,8 +77,9 @@ This repo includes a `render.yaml` that provisions:
    - Connect your GitHub repo
    - Apply the blueprint
 
-### Required env vars (set in Render for BOTH services)
+### Required env vars (set in Render)
 - `SESSION_SECRET`
+- `DATABASE_URL`
 - `SMTP_HOST`
 - `SMTP_PORT`
 - `SMTP_SECURE`
@@ -91,13 +91,14 @@ Optional:
 - `REMINDER_DAYS_BEFORE` (default is `7,3,1,0`)
 
 ### Database
-The blueprint mounts a disk at `/var/data` and sets:
-- `DB_PATH=/var/data/app.db`
+Provide a Postgres connection string in `DATABASE_URL`.
+
+You can use an external free Postgres provider (Neon/Supabase/etc) and paste the pooled connection string.
 
 ### Creating the first admin on Render
 Render doesn’t run interactive commands by default.
 
-Use the built-in bootstrap admin feature. Set these env vars (in both Web + Worker):
+Use the built-in bootstrap admin feature. Set these env vars:
 - `BOOTSTRAP_ADMIN_EMAIL`
 - `BOOTSTRAP_ADMIN_PASSWORD`
 

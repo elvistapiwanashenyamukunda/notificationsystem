@@ -2,5 +2,5 @@ import dotenv from 'dotenv';
 import { initDb } from '../services/db.js';
 
 dotenv.config();
-initDb();
+await initDb();
 console.log('DB initialized');

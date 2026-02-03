@@ -4,8 +4,8 @@ import { ensureBootstrapAdmin } from './services/bootstrapAdmin.js';
 import { startReminderScheduler } from './services/reminderScheduler.js';
 
 dotenv.config();
-initDb();
-ensureBootstrapAdmin();
+await initDb();
+await ensureBootstrapAdmin();
 startReminderScheduler();
 
 // keep process alive

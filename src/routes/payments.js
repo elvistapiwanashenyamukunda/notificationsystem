@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getDb } from '../services/db.js';
+import { query } from '../services/db.js';
 
 export const paymentsRouter = Router();
 
@@ -9,15 +9,16 @@ function parseAmountToCents(amountStr) {
   return Math.round(n * 100);
 }
 
-paymentsRouter.get('/', (req, res) => {
-  const db = getDb();
-  const payments = db
-    .prepare(
-      `SELECT id, title, counterparty, amount_cents, currency, due_date, reminder_days_before, notes
-       FROM payments
-       ORDER BY due_date ASC, id DESC`
-    )
-    .all();
+paymentsRouter.get('/', async (req, res) => {
+  const result = await query(
+    `SELECT id, title, counterparty, amount_cents, currency, due_date, reminder_days_before, notes
+     FROM payments
+     ORDER BY due_date ASC, id DESC`
+  );
+  const payments = result.rows.map((p) => ({
+    ...p,
+    due_date: p.due_date instanceof Date ? p.due_date.toISOString().slice(0, 10) : p.due_date,
+  }));
 
   return res.render('payments/index', { user: req.user, payments });
 });
@@ -26,7 +27,7 @@ paymentsRouter.get('/new', (req, res) => {
   return res.render('payments/new', { user: req.user, error: null, form: {} });
 });
 
-paymentsRouter.post('/new', (req, res) => {
+paymentsRouter.post('/new', async (req, res) => {
   const { title, counterparty, amount, currency, due_date, notes, reminder_days_before } = req.body;
   const amountCents = parseAmountToCents(amount);
 
@@ -38,29 +39,27 @@ paymentsRouter.post('/new', (req, res) => {
     });
   }
 
-  const db = getDb();
-  db.prepare(
-    `INSERT INTO payments (title, counterparty, amount_cents, currency, due_date, reminder_days_before, notes, created_by_admin_id, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    title,
-    counterparty,
-    amountCents,
-    currency,
-    due_date,
-    (reminder_days_before || '').trim() || null,
-    notes || null,
-    req.user.id,
-    new Date().toISOString()
+  await query(
+    `INSERT INTO payments (title, counterparty, amount_cents, currency, due_date, reminder_days_before, notes, created_by_admin_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [
+      title,
+      counterparty,
+      amountCents,
+      currency,
+      due_date,
+      (reminder_days_before || '').trim() || null,
+      notes || null,
+      req.user.id,
+    ]
   );
 
   return res.redirect('/payments');
 });
 
-paymentsRouter.post('/:id/delete', (req, res) => {
+paymentsRouter.post('/:id/delete', async (req, res) => {
   const id = Number(req.params.id);
-  const db = getDb();
-  db.prepare('DELETE FROM reminders_sent WHERE payment_id = ?').run(id);
-  db.prepare('DELETE FROM payments WHERE id = ?').run(id);
+  await query('DELETE FROM reminders_sent WHERE payment_id = $1', [id]);
+  await query('DELETE FROM payments WHERE id = $1', [id]);
   return res.redirect('/payments');
 });

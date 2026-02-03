@@ -36,8 +36,8 @@ app.use((req, _res, next) => {
   next();
 });
 
-initDb();
-ensureBootstrapAdmin();
+await initDb();
+await ensureBootstrapAdmin();
 if (String(process.env.ENABLE_SCHEDULER || 'false') === 'true') {
   startReminderScheduler();
 }

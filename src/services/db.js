@@ -1,61 +1,66 @@
-import Database from 'better-sqlite3';
-import fs from 'fs';
-import path from 'path';
+import pg from 'pg';
 
-let db;
+let pool;
 
-export function getDb() {
-  if (!db) throw new Error('DB not initialized');
-  return db;
+export function getPool() {
+  if (!pool) throw new Error('DB not initialized');
+  return pool;
 }
 
-export function initDb() {
-  if (db) return db;
+export async function query(text, params) {
+  const p = getPool();
+  return p.query(text, params);
+}
 
-  const dbPath = process.env.DB_PATH || './data/app.db';
-  const dir = path.dirname(dbPath);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+export async function initDb() {
+  if (pool) return pool;
 
-  db = new Database(dbPath);
-  db.pragma('journal_mode = WAL');
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) throw new Error('DATABASE_URL must be set');
 
-  db.exec(`
+  pool = new pg.Pool({
+    connectionString,
+    ssl: process.env.PGSSLMODE === 'disable' ? false : { rejectUnauthorized: false },
+  });
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS admins (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       email TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
-      created_at TEXT NOT NULL
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
     CREATE TABLE IF NOT EXISTS payments (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       title TEXT NOT NULL,
       counterparty TEXT NOT NULL,
       amount_cents INTEGER NOT NULL,
       currency TEXT NOT NULL,
-      due_date TEXT NOT NULL,
+      due_date DATE NOT NULL,
       reminder_days_before TEXT,
       notes TEXT,
-      created_by_admin_id INTEGER NOT NULL,
-      created_at TEXT NOT NULL,
-      FOREIGN KEY (created_by_admin_id) REFERENCES admins(id)
+      created_by_admin_id INTEGER NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
     CREATE TABLE IF NOT EXISTS reminders_sent (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      payment_id INTEGER NOT NULL,
-      remind_on TEXT NOT NULL,
-      sent_at TEXT NOT NULL,
-      UNIQUE(payment_id, remind_on),
-      FOREIGN KEY (payment_id) REFERENCES payments(id)
+      id SERIAL PRIMARY KEY,
+      payment_id INTEGER NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
+      remind_on DATE NOT NULL,
+      sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(payment_id, remind_on)
     );
   `);
 
-  const paymentCols = db.prepare("PRAGMA table_info('payments')").all();
-  const hasReminderDaysBefore = paymentCols.some((c) => c.name === 'reminder_days_before');
-  if (!hasReminderDaysBefore) {
-    db.exec('ALTER TABLE payments ADD COLUMN reminder_days_before TEXT');
-  }
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS reminder_days_before TEXT');
 
-  return db;
+  return pool;
+}
+
+export async function closeDb() {
+  if (!pool) return;
+  const p = pool;
+  pool = null;
+  await p.end();
 }

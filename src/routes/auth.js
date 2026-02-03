@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import { getDb } from '../services/db.js';
+import { query } from '../services/db.js';
 
 export const authRouter = Router();
 
@@ -9,11 +9,10 @@ authRouter.get('/login', (req, res) => {
   return res.render('login', { error: null });
 });
 
-authRouter.post('/login', (req, res) => {
+authRouter.post('/login', async (req, res) => {
   const { email, password } = req.body;
-  const db = getDb();
-
-  const admin = db.prepare('SELECT id, email, password_hash FROM admins WHERE email = ?').get(email);
+  const result = await query('SELECT id, email, password_hash FROM admins WHERE email = $1', [email]);
+  const admin = result.rows[0];
   if (!admin) return res.status(401).render('login', { error: 'Invalid email or password' });
 
   const ok = bcrypt.compareSync(password || '', admin.password_hash);
